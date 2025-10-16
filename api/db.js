@@ -5,11 +5,11 @@ dotenv.config();
 // Create and export a reusable function for getting a DB connection
 export async function getConnection() {
   const connection = await mysql.createConnection({
-    host: process.env.MYSQL_HOST || "localhost",
-    user: process.env.MYSQL_USER || "root",
-    password: process.env.MYSQL_PASSWORD || "",
-    database: process.env.MYSQL_DATABASE || "cbt",
-    port: process.env.MYSQL_PORT || 3306,  // ✅ add this line
+    host: process.env.MYSQL_HOST, //|| "localhost",
+    user: process.env.MYSQL_USER,// || "root",
+    password: process.env.MYSQL_PASSWORD, // || "",
+    database: process.env.MYSQL_DATABASE, //|| "cbt",
+    port: process.env.MYSQL_PORT // || 3306,  // ✅ add this line
   });
   return connection;
 }
