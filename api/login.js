@@ -2,12 +2,16 @@
 import { getConnection } from "./db.js";
 import bcrypt from "bcryptjs";
 import express from "express";
+import cors from "cors";
+
 
 const router = express.Router();
 
 // POST /api/login
 router.post("/", async (req, res) => {
   try {
+    app.use(cors());
+    
     const db = await getConnection();
     const { username, password } = req.body || {};
 
