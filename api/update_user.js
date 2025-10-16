@@ -4,18 +4,15 @@ import { getConnection } from "./db.js";
 
 const router = express.Router();
 
-// ✅ POST /api/updateUser/:id
 router.post("/:id", async (req, res) => {
   try {
     const db = await getConnection();
 
-    // ✅ Get ID safely from URL params
     const id = parseInt(req.params.id);
     if (!id || id <= 0) {
       return res.status(400).json({ status: "error", message: "Invalid ID" });
     }
 
-    // ✅ Parse request body
     const {
       firstName = "",
       lastName = "",
@@ -26,7 +23,6 @@ router.post("/:id", async (req, res) => {
       dob = "",
     } = req.body;
 
-    // ✅ Validate fields
     if (!firstName || !lastName || !email || !address || !dob || !role) {
       return res.status(400).json({
         status: "error",
@@ -34,30 +30,50 @@ router.post("/:id", async (req, res) => {
       });
     }
 
-    // ✅ Prepare new values
     const username = `${firstName} ${lastName}`;
     const rawPassword = `${firstName}1234`;
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
-    // ✅ Check for duplicate username (excluding current record)
-    const [userDup1] = await db.query(
-      "SELECT * FROM users WHERE username = ? AND id != ?",
-      [username, id]
-    );
-    const [userDup2] = await db.query(
-      "SELECT * FROM nonstafftable WHERE username = ? AND id != ?",
-      [username, id]
-    );
+    // ✅ Check current table (find where this ID lives)
+    const [foundInUsers] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
+    const [foundInNonStaff] = await db.query("SELECT * FROM nonstafftable WHERE id = ?", [id]);
 
-    if (userDup1.length > 0 || userDup2.length > 0) {
-      return res.status(400).json({
-        status: "error",
-        message: "Username already exists.",
+    // ✅ If moving between tables
+    if (role === "admin" && foundInNonStaff.length > 0) {
+      // move from nonstafftable → users
+      const user = foundInNonStaff[0];
+
+      await db.query(
+        "INSERT INTO users (username, firstName, lastName, password, class, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, email, address, dob, role]
+      );
+
+      await db.query("DELETE FROM nonstafftable WHERE id = ?", [id]);
+
+      return res.status(200).json({
+        status: "success",
+        message: "User Just Became An Admin.",
       });
     }
 
-    // ✅ Build SQL query depending on role
-    let sql = "";
+    if ((role === "student" || role === "parent") && foundInUsers.length > 0) {
+      // move from users → nonstafftable
+      const user = foundInUsers[0];
+
+      await db.query(
+        "INSERT INTO nonstafftable (username, firstName, lastName, password, class, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, email, address, dob, role]
+      );
+
+      await db.query("DELETE FROM users WHERE id = ?", [id]);
+
+      return res.status(200).json({
+        status: "success",
+        message: "User Status Updated Successfully.",
+      });
+    }
+
+    // ✅ Otherwise, normal update within the same table
     const params = [
       username,
       firstName,
@@ -71,36 +87,35 @@ router.post("/:id", async (req, res) => {
       id,
     ];
 
-    if (role === "admin") {
+    let sql = "";
+    if (foundInUsers.length > 0) {
       sql = `
         UPDATE users
         SET username=?, firstName=?, lastName=?, password=?, class=?, email=?, address=?, dob=?, role=?
         WHERE id=?`;
-    } else if (role === "student" || role === "parent") {
+    } else if (foundInNonStaff.length > 0) {
       sql = `
         UPDATE nonstafftable
         SET username=?, firstName=?, lastName=?, password=?, class=?, email=?, address=?, dob=?, role=?
         WHERE id=?`;
     } else {
-      return res.status(400).json({
+      return res.status(404).json({
         status: "error",
-        message: "Unknown role.",
+        message: "User Not Found.",
       });
     }
 
-    // ✅ Execute update query
     const [result] = await db.query(sql, params);
 
-    // ✅ Return appropriate response
     if (result.affectedRows > 0) {
       return res.status(200).json({
         status: "success",
-        message: "Update was successful.",
+        message: "User updated successfully.",
       });
     } else {
       return res.status(404).json({
         status: "error",
-        message: "User not found or no changes made.",
+        message: "No changes made.",
       });
     }
   } catch (err) {
