@@ -6,11 +6,11 @@ import cors from "cors";
 
 
 const router = express.Router();
+router.use(cors());
 
 // POST /api/login
 router.post("/", async (req, res) => {
   try {
-    app.use(cors());
     
     const db = await getConnection();
     const { username, password } = req.body || {};
