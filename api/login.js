@@ -31,6 +31,7 @@ router.post("/", async (req, res) => {
         lastName VARCHAR(50) NOT NULL,
         password VARCHAR(255) NOT NULL,
         class VARCHAR(255) NOT NULL,
+        gender VARCHAR(10) NOT NULL,
         email VARCHAR(255) NOT NULL,
         address VARCHAR(255) NOT NULL,
         dob VARCHAR(255) NOT NULL,
@@ -47,6 +48,7 @@ router.post("/", async (req, res) => {
         lastName VARCHAR(50) NOT NULL,
         password VARCHAR(255) NOT NULL,
         class VARCHAR(255) NOT NULL,
+        gender VARCHAR(10) NOT NULL,
         email VARCHAR(255) NOT NULL,
         address VARCHAR(255) NOT NULL,
         dob VARCHAR(255) NOT NULL,
@@ -63,8 +65,8 @@ router.post("/", async (req, res) => {
       const adminPass = await bcrypt.hash("admin123", 10);
       await db.query(
         `
-        INSERT INTO users (username, firstName, lastName, password, class, email, address, dob, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, firstName, lastName, password, class, gender, email, address, dob, role)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           "admin1",
@@ -72,6 +74,7 @@ router.post("/", async (req, res) => {
           "baiyekusi",
           adminPass,
           "",
+          "Male",
           "josephbaiyekusi@gmail.com",
           "No 22 Akande Street, Kaduna Road",
           "01/10/2002",
@@ -85,10 +88,10 @@ router.post("/", async (req, res) => {
       const parentPass = await bcrypt.hash("parent123", 10);
       await db.query(
         `
-        INSERT INTO nonstafftable (username, firstName, lastName, password, class, email, address, dob, role)
+        INSERT INTO nonstafftable (username, firstName, lastName, password, class, gender, email, address, dob, role)
         VALUES 
-        (?, ?, ?, ?, ?, ?, ?, ?, ?),
-        (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?),
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           "student1",
@@ -96,6 +99,7 @@ router.post("/", async (req, res) => {
           "baiyekusi",
           studentPass,
           "ss2",
+          "Male",
           "benjaminbaiyekusi@gmail.com",
           "No 22 Akande Street, Kaduna Road",
           "20/10/2004",
@@ -105,6 +109,7 @@ router.post("/", async (req, res) => {
           "baiyekusi",
           parentPass,
           "",
+          "Female",
           "agnesbaiyekusi@gmail.com",
           "No 22 Akande Street, Kaduna Road",
           "12/03/1970",

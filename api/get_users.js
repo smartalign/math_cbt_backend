@@ -10,6 +10,8 @@ router.get("/", async (req, res) => {
 
     // 🔹 Fetch all users from both tables
     const [users] = await db.execute("SELECT * FROM users");
+    // console.log("SAMPLE ROW FROM USERS:", users[0]);
+
     const [nonStaff] = await db.execute("SELECT * FROM nonstafftable");
 
     // 🧮 Combine both sets of results
@@ -22,6 +24,7 @@ router.get("/", async (req, res) => {
           id: row.id,
           name: row.username,
           class: row.class,
+          gender: row.gender,
           dob: row.dob,
           address: row.address,
           role: row.role,
@@ -36,6 +39,7 @@ router.get("/", async (req, res) => {
           id: row.id,
           name: row.username,
           class: row.class,
+          gender: row.gender,
           dob: row.dob,
           address: row.address,
           role: row.role,

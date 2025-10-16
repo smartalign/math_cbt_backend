@@ -17,13 +17,14 @@ router.post("/:id", async (req, res) => {
       firstName = "",
       lastName = "",
       class: userClass = "",
+      gender = "",
       email = "",
       address = "",
       role = "",
       dob = "",
     } = req.body;
 
-    if (!firstName || !lastName || !email || !address || !dob || !role) {
+    if (!firstName || !lastName || !email || !address || !dob || !role ||!gender) {
       return res.status(400).json({
         status: "error",
         message: "Missing required fields.",
@@ -33,6 +34,20 @@ router.post("/:id", async (req, res) => {
     const username = `${firstName} ${lastName}`;
     const rawPassword = `${firstName}1234`;
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    // 🔎 Check for duplicate username in both tables
+    const [userCheck1] = await db.execute("SELECT * FROM users WHERE username = ?", [username]);
+    const [userCheck2] = await db.execute("SELECT * FROM nonstafftable WHERE username = ?", [username]);
+
+    if (userCheck1.length > 0 || userCheck2.length > 0) {
+      return res.status(409).json({
+        status: "error",
+        message: "Username already exists.",
+      });
+    }
+
+
+
 
     // ✅ Check current table (find where this ID lives)
     const [foundInUsers] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
@@ -44,8 +59,8 @@ router.post("/:id", async (req, res) => {
       const user = foundInNonStaff[0];
 
       await db.query(
-        "INSERT INTO users (username, firstName, lastName, password, class, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [username, firstName, lastName, hashedPassword, userClass, email, address, dob, role]
+        "INSERT INTO users (username, firstName, lastName, password, class, gender, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, role]
       );
 
       await db.query("DELETE FROM nonstafftable WHERE id = ?", [id]);
@@ -61,8 +76,8 @@ router.post("/:id", async (req, res) => {
       const user = foundInUsers[0];
 
       await db.query(
-        "INSERT INTO nonstafftable (username, firstName, lastName, password, class, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [username, firstName, lastName, hashedPassword, userClass, email, address, dob, role]
+        "INSERT INTO nonstafftable (username, firstName, lastName, password, class, gender, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, role]
       );
 
       await db.query("DELETE FROM users WHERE id = ?", [id]);
@@ -80,6 +95,7 @@ router.post("/:id", async (req, res) => {
       lastName,
       hashedPassword,
       userClass,
+      gender,
       email,
       address,
       dob,
@@ -91,12 +107,12 @@ router.post("/:id", async (req, res) => {
     if (foundInUsers.length > 0) {
       sql = `
         UPDATE users
-        SET username=?, firstName=?, lastName=?, password=?, class=?, email=?, address=?, dob=?, role=?
+        SET username=?, firstName=?, lastName=?, password=?, class=?, gender=?, email=?, address=?, dob=?, role=?
         WHERE id=?`;
     } else if (foundInNonStaff.length > 0) {
       sql = `
         UPDATE nonstafftable
-        SET username=?, firstName=?, lastName=?, password=?, class=?, email=?, address=?, dob=?, role=?
+        SET username=?, firstName=?, lastName=?, password=?, class=?, gender=?, email=?, address=?, dob=?, role=?
         WHERE id=?`;
     } else {
       return res.status(404).json({
