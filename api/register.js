@@ -1,16 +1,14 @@
-import { getConnection } from "./db.js"; // import your reusable DB connection pool
-import bcrypt from "bcryptjs"; // for password hashing
+import express from "express";
+import bcrypt from "bcryptjs";
+import { getConnection } from "./db.js"; // adjust path as needed
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ status: "error", message: "Method not allowed" });
-  }
+const router = express.Router();
 
+// ✅ POST /api/register
+router.post("/", async (req, res) => {
   try {
-    // 🧩 Get DB connection from your pool
     const db = await getConnection();
 
-    // 📥 Parse the incoming JSON body
     const {
       firstName = "",
       lastName = "",
@@ -21,7 +19,7 @@ export default async function handler(req, res) {
       dob = "",
     } = req.body;
 
-    // ✅ Validate input
+    // ✅ Input validation
     if (!firstName || !lastName || !email || !role) {
       return res.status(400).json({
         status: "error",
@@ -31,8 +29,8 @@ export default async function handler(req, res) {
 
     // 🧮 Generate username and password
     const username = `${firstName} ${lastName}`;
-    const rawPassword = `${firstName}1234`; // same logic as in your PHP
-    const hashedPassword = await bcrypt.hash(rawPassword, 10); // hash for security
+    const rawPassword = `${firstName}1234`;
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     // 🔎 Check for duplicate username in both tables
     const [userCheck1] = await db.execute("SELECT * FROM users WHERE username = ?", [username]);
@@ -45,23 +43,24 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🚀 Insert based on role
+    // 🚀 Insert into the correct table based on role
     let query;
     if (role === "admin") {
       query = `
         INSERT INTO users 
         (username, firstName, lastName, password, class, email, address, dob, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
     } else if (role === "student" || role === "parent") {
       query = `
         INSERT INTO nonstafftable 
         (username, firstName, lastName, password, class, email, address, dob, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
     } else {
-      return res.status(400).json({ status: "error", message: "Unknown role" });
+      return res.status(400).json({ status: "error", message: "Unknown role." });
     }
 
-    // 🧾 Execute insertion
     await db.execute(query, [
       username,
       firstName,
@@ -77,17 +76,19 @@ export default async function handler(req, res) {
     // ✅ Respond success
     return res.status(201).json({
       status: "success",
-      message: "Registration was successful",
+      message: "Registration was successful.",
       username,
-      password: rawPassword, // Optional: Only send if you want to show it in frontend
+      password: rawPassword, // Optional: display in frontend
     });
 
   } catch (error) {
     console.error("Registration error:", error);
     return res.status(500).json({
       status: "error",
-      message: "Registration failed",
+      message: "Registration failed.",
       error: error.message,
     });
   }
-}
+});
+
+export default router;

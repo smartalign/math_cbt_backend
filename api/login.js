@@ -1,23 +1,21 @@
 // /api/login.js
 import { getConnection } from "./db.js";
 import bcrypt from "bcryptjs";
+import express from "express";
 
-export default async function handler(req, res) {
-  
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  if (req.method !== "POST") {
-    return res.status(405).json({ status: "error", message: "Method not allowed" });
-  }
+const router = express.Router();
 
+// POST /api/login
+router.post("/", async (req, res) => {
   try {
     const db = await getConnection();
     const { username, password } = req.body || {};
 
     if (!username || !password) {
-      return res.status(400).json({ status: "error", message: "Username and password are required." });
+      return res.status(400).json({
+        status: "error",
+        message: "Username and password are required.",
+      });
     }
 
     // --- STEP 1: Create tables if they don't exist ---
@@ -54,42 +52,78 @@ export default async function handler(req, res) {
     `);
 
     // --- STEP 2: Insert default records if empty ---
-    const [[{ c: usersCount }]] = await db.query("SELECT COUNT(*) AS c FROM users");
-    const [[{ c: nonStaffCount }]] = await db.query("SELECT COUNT(*) AS c FROM nonstafftable");
+    const [[{ c: userscount }]] = await db.query("SELECT COUNT(*) AS c FROM users");
+    const [[{ c: nonstaffcount }]] = await db.query("SELECT COUNT(*) AS c FROM nonstafftable");
 
-    if (usersCount === 0) {
+    if (userscount === 0) {
       const adminPass = await bcrypt.hash("admin123", 10);
-      await db.query(`
+      await db.query(
+        `
         INSERT INTO users (username, firstName, lastName, password, class, email, address, dob, role)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [ "admin1", "joseph", "baiyekusi", adminPass, "", "josephbaiyekusi@gmail.com", "No 22 Akande Street, Kaduna Road", "01/10/2002", "admin"
-      ]);
+      `,
+        [
+          "admin1",
+          "joseph",
+          "baiyekusi",
+          adminPass,
+          "",
+          "josephbaiyekusi@gmail.com",
+          "No 22 Akande Street, Kaduna Road",
+          "01/10/2002",
+          "admin",
+        ]
+      );
     }
 
-    if (nonStaffCount === 0) {
+    if (nonstaffcount === 0) {
       const studentPass = await bcrypt.hash("student123", 10);
       const parentPass = await bcrypt.hash("parent123", 10);
-      await db.query(`
+      await db.query(
+        `
         INSERT INTO nonstafftable (username, firstName, lastName, password, class, email, address, dob, role)
         VALUES 
         (?, ?, ?, ?, ?, ?, ?, ?, ?),
         (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        "student1", "benjamin", "baiyekusi", studentPass, "ss2", "benjaminbaiyekusi@gmail.com", "No 22 Akande Street, Kaduna Road", "20/10/2004", "student",
-        "parent1", "Agnes", "baiyekusi", parentPass, "", "agnesbaiyekusi@gmail.com", "No 22 Akande Street, Kaduna Road", "12/03/1970", "parent"
-      ]);
+      `,
+        [
+          "student1",
+          "benjamin",
+          "baiyekusi",
+          studentPass,
+          "ss2",
+          "benjaminbaiyekusi@gmail.com",
+          "No 22 Akande Street, Kaduna Road",
+          "20/10/2004",
+          "student",
+          "parent1",
+          "Agnes",
+          "baiyekusi",
+          parentPass,
+          "",
+          "agnesbaiyekusi@gmail.com",
+          "No 22 Akande Street, Kaduna Road",
+          "12/03/1970",
+          "parent",
+        ]
+      );
     }
 
     // --- STEP 3: Handle login ---
     let user = null;
     let table = null;
 
-    const [users] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+    const [users] = await db.query("SELECT * FROM users WHERE username = ?", [
+      username,
+    ]);
     if (users.length === 1) {
       user = users[0];
       table = "users";
     } else {
-      const [nonstaff] = await db.query("SELECT * FROM nonstafftable WHERE username = ?", [username]);
+      const [nonstaff] = await db.query(
+        "SELECT * FROM nonstafftable WHERE username = ?",
+        [username]
+      );
       if (nonstaff.length === 1) {
         user = nonstaff[0];
         table = "nonstafftable";
@@ -97,26 +131,32 @@ export default async function handler(req, res) {
     }
 
     if (!user) {
-      return res.status(404).json({ status: "error", message: "User not found." });
+      return res
+        .status(404)
+        .json({ status: "error", message: "User not found." });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
-      return res.status(401).json({ status: "error", message: "Incorrect password." });
+      return res
+        .status(401)
+        .json({ status: "error", message: "Incorrect password." });
     }
 
     // --- STEP 4: Success Response ---
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
       message: "Login successful.",
       role: user.role,
       username: user.username,
       table,
     });
-
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ status: "error", message: "Server error", error: error.message });
+    res
+      .status(500)
+      .json({ status: "error", message: "Server error", error: error.message });
   }
-}
+});
 
+export default router;

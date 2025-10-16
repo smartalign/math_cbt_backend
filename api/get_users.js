@@ -1,30 +1,21 @@
+import express from "express";
 import { getConnection } from "./db.js";
 
-export default async function handler(req, res) {
-  
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  // ✅ Allow only GET requests
-  if (req.method !== "GET") {
-    return res.status(405).json({ status: "error", message: "Method not allowed" });
-  }
+const router = express.Router();
 
+// ✅ GET /api/getUsers
+router.get("/", async (req, res) => {
   try {
-    // 🧠 Connect to the database (via your pool)
     const db = await getConnection();
 
-    // 🔹 Fetch all users from the `users` table
+    // 🔹 Fetch all users from both tables
     const [users] = await db.execute("SELECT * FROM users");
-
-    // 🔹 Fetch all users from the `nonstafftable` table
     const [nonStaff] = await db.execute("SELECT * FROM nonstafftable");
 
     // 🧮 Combine both sets of results
     const allUsers = [];
 
-    // Add records from `users`
+    // Add admin users
     users.forEach((row) => {
       if (row.username && row.username.trim() !== "") {
         allUsers.push({
@@ -38,7 +29,7 @@ export default async function handler(req, res) {
       }
     });
 
-    // Add records from `nonstafftable`
+    // Add students/parents
     nonStaff.forEach((row) => {
       if (row.username && row.username.trim() !== "") {
         allUsers.push({
@@ -52,7 +43,7 @@ export default async function handler(req, res) {
       }
     });
 
-    // ✅ Send back as JSON
+    // ✅ Respond with combined list
     return res.status(200).json(allUsers);
   } catch (error) {
     console.error("Get users error:", error);
@@ -62,4 +53,6 @@ export default async function handler(req, res) {
       error: error.message,
     });
   }
-}
+});
+
+export default router;

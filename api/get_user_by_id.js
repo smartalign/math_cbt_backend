@@ -1,18 +1,11 @@
+import express from "express";
 import { getConnection } from "./db.js";
 
-export default async function handler(req, res) {
-  
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  // ✅ Allow only GET requests
-  if (req.method !== "GET") {
-    return res.status(405).json({ status: "error", message: "Method not allowed" });
-  }
+const router = express.Router();
 
+// ✅ GET /api/getUserById?id=1&role=admin
+router.get("/", async (req, res) => {
   try {
-    // 🧠 Connect to database
     const db = await getConnection();
 
     // 📥 Extract query params
@@ -41,7 +34,7 @@ export default async function handler(req, res) {
     // 🔎 Execute query
     const [rows] = await db.execute(query, [id]);
 
-    // ✅ If user found
+    // ✅ Respond based on result
     if (rows.length > 0) {
       return res.status(200).json({
         status: "success",
@@ -61,4 +54,6 @@ export default async function handler(req, res) {
       error: error.message,
     });
   }
-}
+});
+
+export default router;

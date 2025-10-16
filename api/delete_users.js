@@ -1,49 +1,41 @@
-import mysql from "mysql2/promise";
+import express from "express";
+import { getConnection } from "./db.js";
 
-export default async function handler(req, res) {
-  
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  
-  // Only allow POST requests (like in your PHP code)
-  if (req.method !== "POST") {
-    return res.status(405).json({ status: "error", message: "Method not allowed" });
-  }
+const router = express.Router();
 
+// ✅ DELETE /api/deleteUser
+router.delete("/:role/:id", async (req, res) => {
   try {
-    // Parse JSON input from request body
-    const { id } = req.body;
+    const { role, id } = req.params;
 
-    // Validate input
-    if (!id) {
-      return res.status(400).json({ status: "error", message: "No ID provided" });
+    if (!id || !role) {
+      return res.status(400).json({ status: "error", message: "Missing id or role" });
     }
 
-    // Connect to Railway MySQL database
-    const connection = await mysql.createConnection({
-      host: process.env.MYSQL_HOST,
-      user: process.env.MYSQL_USER,
-      password: process.env.MYSQL_PASSWORD,
-      database: process.env.MYSQL_DATABASE,
-      port: process.env.MYSQL_PORT || 3306,
-    });
+    const db = await getConnection();
 
-    // Use prepared statements for safety
-    const [result1] = await connection.execute("DELETE FROM users WHERE id = ?", [id]);
-    const [result2] = await connection.execute("DELETE FROM nonstafftable WHERE id = ?", [id]);
+    let table;
+    if (role === "admin") table = "users";
+    else if (role === "student" || role === "parent") table = "nonstafftable";
+    else return res.status(400).json({ status: "error", message: "Unknown role" });
 
-    await connection.end();
+    const [result] = await db.query(`DELETE FROM ${table} WHERE id = ?`, [id]);
 
-    // Check if at least one delete worked
-    if (result1.affectedRows > 0 || result2.affectedRows > 0) {
-      return res.status(200).json({ status: "success", message: "Record deleted successfully" });
-    } else {
-      return res.status(404).json({ status: "error", message: "Record not found" });
+    if (result.affectedRows > 0) {
+      return res.status(200).json({ status: "success", message: "User deleted successfully" });
     }
 
+    return res.status(404).json({ status: "error", message: "User not found" });
   } catch (error) {
     console.error("Delete error:", error);
-    return res.status(500).json({ status: "error", message: "Server error", error: error.message });
+    return res.status(500).json({
+      status: "error",
+      message: "Server error",
+      error: error.message,
+    });
   }
-}
+});
+
+
+
+export default router;
