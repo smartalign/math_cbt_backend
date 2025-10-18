@@ -8,7 +8,8 @@ import getUsersRoute from "./api/get_users.js";
 import getUserByIdRoute from "./api/get_user_by_id.js";
 import deleteUserRoute from "./api/delete_users.js";
 import deleteMultipleUsersRoute from "./api/delete_multiple_users.js";
-
+import updateStatusRoute from "./api/update_status.js";
+import dashboardStats from "./api/dashboard_stats.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,6 +36,8 @@ app.use("/api/get_users", getUsersRoute);
 app.use("/api/get_user_by_id", getUserByIdRoute);
 app.use("/api/delete_users", deleteUserRoute);
 app.use("/api/delete_multiple_users", deleteMultipleUsersRoute);
+app.use("/api/update_status", updateStatusRoute);
+app.use("/api/dashboard_stats", dashboardStats);
 
 
 

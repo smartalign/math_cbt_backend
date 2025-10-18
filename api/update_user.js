@@ -4,13 +4,22 @@ import { getConnection } from "./db.js";
 
 const router = express.Router();
 
-router.post("/:id", async (req, res) => {
+router.post("/:role/:id", async (req, res) => {
   try {
     const db = await getConnection();
+    const { role, id } = req.params;
+    const numericId = parseInt(id);
 
-    const id = parseInt(req.params.id);
-    if (!id || id <= 0) {
+    if (!numericId || numericId <= 0) {
       return res.status(400).json({ status: "error", message: "Invalid ID" });
+    }
+
+    // ✅ Validate role and select correct table
+    const table = role === "admin" ? "users" : "nonstafftable";
+    const [currentUser] = await db.query(`SELECT * FROM ${table} WHERE id = ?`, [numericId]);
+
+    if (currentUser.length === 0) {
+      return res.status(404).json({ status: "error", message: "User not found." });
     }
 
     const {
@@ -20,11 +29,12 @@ router.post("/:id", async (req, res) => {
       gender = "",
       email = "",
       address = "",
-      role = "",
       dob = "",
+      newRole = role, // optional new role (for moving between tables)
+      status,
     } = req.body;
 
-    if (!firstName || !lastName || !email || !address || !dob || !role ||!gender) {
+    if (!firstName || !lastName || !email || !address || !dob || !gender) {
       return res.status(400).json({
         status: "error",
         message: "Missing required fields.",
@@ -35,60 +45,57 @@ router.post("/:id", async (req, res) => {
     const rawPassword = `${firstName}1234`;
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
-    // 🔎 Check for duplicate username in both tables
-    const [userCheck1] = await db.execute("SELECT * FROM users WHERE username = ?", [username]);
-    const [userCheck2] = await db.execute("SELECT * FROM nonstafftable WHERE username = ?", [username]);
+    const oldUsername = currentUser[0].username;
 
-    if (userCheck1.length > 0 || userCheck2.length > 0) {
-      return res.status(409).json({
-        status: "error",
-        message: "Username already exists.",
-      });
-    }
-
-
-
-
-    // ✅ Check current table (find where this ID lives)
-    const [foundInUsers] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
-    const [foundInNonStaff] = await db.query("SELECT * FROM nonstafftable WHERE id = ?", [id]);
-
-    // ✅ If moving between tables
-    if (role === "admin" && foundInNonStaff.length > 0) {
-      // move from nonstafftable → users
-      const user = foundInNonStaff[0];
-
-      await db.query(
-        "INSERT INTO users (username, firstName, lastName, password, class, gender, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, role]
+    // ✅ If username changed, check duplicates across both tables
+    if (username !== oldUsername) {
+      const [existsInUsers] = await db.query(
+        "SELECT id FROM users WHERE username = ?",
+        [username]
+      );
+      const [existsInNonStaff] = await db.query(
+        "SELECT id FROM nonstafftable WHERE username = ?",
+        [username]
       );
 
-      await db.query("DELETE FROM nonstafftable WHERE id = ?", [id]);
+      if (existsInUsers.length > 0 || existsInNonStaff.length > 0) {
+        return res.status(400).json({
+          status: "error",
+          message: "Username already exists.",
+        });
+      }
+    }
+
+    // ✅ Handle role change (moving between tables)
+    if (newRole === "admin" && table === "nonstafftable") {
+      // move nonstaff → users
+      await db.query(
+        "INSERT INTO users (username, firstName, lastName, password, class, gender, email, address, dob, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, newRole, status]
+      );
+      await db.query("DELETE FROM nonstafftable WHERE id = ?", [numericId]);
 
       return res.status(200).json({
         status: "success",
-        message: "User Just Became An Admin.",
+        message: "User promoted to admin successfully.",
       });
     }
 
-    if ((role === "student" || role === "parent") && foundInUsers.length > 0) {
-      // move from users → nonstafftable
-      const user = foundInUsers[0];
-
+    if ((newRole === "student" || newRole === "parent") && table === "users") {
+      // move users → nonstaff
       await db.query(
-        "INSERT INTO nonstafftable (username, firstName, lastName, password, class, gender, email, address, dob, role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, role]
+        "INSERT INTO nonstafftable (username, firstName, lastName, password, class, gender, email, address, dob, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [username, firstName, lastName, hashedPassword, userClass, gender, email, address, dob, newRole, status]
       );
-
-      await db.query("DELETE FROM users WHERE id = ?", [id]);
+      await db.query("DELETE FROM users WHERE id = ?", [numericId]);
 
       return res.status(200).json({
         status: "success",
-        message: "User Status Updated Successfully.",
+        message: "User moved to nonstafftable successfully.",
       });
     }
 
-    // ✅ Otherwise, normal update within the same table
+    // ✅ Normal update within the same table
     const params = [
       username,
       firstName,
@@ -99,27 +106,15 @@ router.post("/:id", async (req, res) => {
       email,
       address,
       dob,
-      role,
-      id,
+      newRole,
+      status,
+      numericId,
     ];
 
-    let sql = "";
-    if (foundInUsers.length > 0) {
-      sql = `
-        UPDATE users
-        SET username=?, firstName=?, lastName=?, password=?, class=?, gender=?, email=?, address=?, dob=?, role=?
-        WHERE id=?`;
-    } else if (foundInNonStaff.length > 0) {
-      sql = `
-        UPDATE nonstafftable
-        SET username=?, firstName=?, lastName=?, password=?, class=?, gender=?, email=?, address=?, dob=?, role=?
-        WHERE id=?`;
-    } else {
-      return res.status(404).json({
-        status: "error",
-        message: "User Not Found.",
-      });
-    }
+    const sql = `
+      UPDATE ${table}
+      SET username=?, firstName=?, lastName=?, password=?, class=?, gender=?, email=?, address=?, dob=?, role=?, status=?
+      WHERE id=?`;
 
     const [result] = await db.query(sql, params);
 
@@ -129,14 +124,18 @@ router.post("/:id", async (req, res) => {
         message: "User updated successfully.",
       });
     } else {
-      return res.status(404).json({
+      return res.status(400).json({
         status: "error",
         message: "No changes made.",
       });
     }
   } catch (err) {
     console.error("Error updating user:", err);
-    return res.status(500).json({ status: "error", message: "Server error." });
+    return res.status(500).json({
+      status: "error",
+      message: "Server error",
+      error: err.message,
+    });
   }
 });
 

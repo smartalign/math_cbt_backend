@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
           dob: row.dob,
           address: row.address,
           role: row.role,
+          status: row.status,
         });
       }
     });
@@ -43,6 +44,7 @@ router.get("/", async (req, res) => {
           dob: row.dob,
           address: row.address,
           role: row.role,
+          status: row.status,
         });
       }
     });

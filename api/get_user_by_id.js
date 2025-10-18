@@ -3,14 +3,17 @@ import { getConnection } from "./db.js";
 
 const router = express.Router();
 
-// ✅ GET /api/getUserById?id=1&role=admin
-router.get("/", async (req, res) => {
-  try {
-    const db = await getConnection();
-
+    
+    
+    // ✅ GET /api/getUserById?id=1&role=admin
+    router.get("/:role/:id", async (req, res) => {
+      try {
+        const db = await getConnection();
+        
     // 📥 Extract query params
-    const id = parseInt(req.query.id, 10);
-    const role = req.query.role || "";
+        const { role, id } = req.params;
+    // const id = parseInt(req.query.id, 10);
+    // const role = req.query.role || "";
 
     // ✅ Validate input
     if (!id || id <= 0) {

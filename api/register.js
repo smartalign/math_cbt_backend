@@ -16,12 +16,13 @@ router.post("/", async (req, res) => {
       gender= "",
       email = "",
       address = "",
-      role = "",
       dob = "",
+      role = "",
+      status = "active",
     } = req.body;
 
     // ✅ Input validation
-    if (!firstName || !lastName || !email || !role || !gender) {
+    if (!firstName || !lastName || !email || !role || !gender || !status) {
       return res.status(400).json({
         status: "error",
         message: "Missing required fields.",
@@ -49,14 +50,14 @@ router.post("/", async (req, res) => {
     if (role === "admin") {
       query = `
         INSERT INTO users 
-        (username, firstName, lastName, password, class, gender, email, address, dob, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (username, firstName, lastName, password, class, gender, email, address, dob, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
     } else if (role === "student" || role === "parent") {
       query = `
         INSERT INTO nonstafftable 
-        (username, firstName, lastName, password, class, gender, email, address, dob, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (username, firstName, lastName, password, class, gender, email, address, dob, role, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
     } else {
       return res.status(400).json({ status: "error", message: "Unknown role." });
@@ -73,6 +74,7 @@ router.post("/", async (req, res) => {
       address,
       dob,
       role,
+      status,
     ]);
 
     // ✅ Respond success
